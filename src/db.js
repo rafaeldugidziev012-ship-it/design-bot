@@ -95,9 +95,18 @@ class MongoStore {
 
 async function init() {
   let store;
-  if (process.env.MONGODB_URI) {
+  // Проще всего: указать только MONGODB_PASSWORD — строка подключения соберётся сама
+  let mongoUri = process.env.MONGODB_URI;
+  const pw = (process.env.MONGODB_PASSWORD || '').trim();
+  if (pw) {
+    const user = process.env.MONGODB_USER || 'rafaeldugidziev012_db_user';
+    const host = process.env.MONGODB_HOST || 'cluster0.lxi0ry7.mongodb.net';
+    console.log(`🔎 MONGODB_PASSWORD: длина=${pw.length}`);
+    mongoUri = `mongodb+srv://${encodeURIComponent(user)}:${encodeURIComponent(pw)}@${host}/?retryWrites=true&w=majority&appName=Cluster0`;
+  }
+  if (mongoUri) {
     store = new MongoStore();
-    await store.connect(process.env.MONGODB_URI);
+    await store.connect(mongoUri);
     console.log('📦 База: MongoDB');
   } else {
     store = new JsonStore(path.join(__dirname, '..', 'data', 'db.json'));
