@@ -46,11 +46,26 @@ class JsonStore {
   async nextSeq(name) { this.d.seq[name] = (this.d.seq[name] || 0) + 1; this._save(); return this.d.seq[name]; }
 }
 
+/** Чинит строку подключения: экранирует спецсимволы в логине/пароле, убирает пробелы и <> */
+function fixMongoUri(raw) {
+  let uri = String(raw).trim().replace(/^["']|["']$/g, '');
+  const m = uri.match(/^(mongodb(?:\+srv)?:\/\/)(.*)@([^@]+)$/);
+  if (!m) return uri;
+  const cred = m[2];
+  const i = cred.indexOf(':');
+  if (i < 0) return uri;
+  const enc = (s) => {
+    s = s.replace(/^<(.*)>$/, '$1');
+    try { return encodeURIComponent(decodeURIComponent(s)); } catch { return encodeURIComponent(s); }
+  };
+  return m[1] + enc(cred.slice(0, i)) + ':' + enc(cred.slice(i + 1)) + '@' + m[3];
+}
+
 /** MongoDB (бесплатный кластер MongoDB Atlas) — для облачного хостинга. */
 class MongoStore {
   async connect(uri) {
     const { MongoClient } = require('mongodb');
-    this.client = new MongoClient(uri);
+    this.client = new MongoClient(fixMongoUri(uri));
     await this.client.connect();
     this.db = this.client.db(process.env.MONGODB_DB || 'design_studio');
     for (const c of COLLECTIONS) await this.db.collection(c).createIndex({ id: 1 }, { unique: true });
