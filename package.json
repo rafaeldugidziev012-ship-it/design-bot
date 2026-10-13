@@ -1,0 +1,20 @@
+{
+  "name": "design-studio-bot",
+  "version": "1.0.0",
+  "description": "Telegram-бот и мини-приложение для заказа дизайна: портфолио, цены, заявки, админ-панель",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "DEV_MODE=true node src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "grammy": "^1.30.0",
+    "mongodb": "^6.9.0",
+    "multer": "^2.0.0"
+  }
+}
