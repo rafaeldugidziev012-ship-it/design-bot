@@ -10,7 +10,8 @@ const { validateInitData } = require('./auth');
 const { createBot, STATUS } = require('./bot');
 
 const PORT = Number(process.env.PORT) || 3000;
-const TOKEN = ((process.env.BOT_TOKEN || '').match(/\d{6,}:[A-Za-z0-9_-]{30,}/) || [''])[0];
+// если в поле случайно оказалось несколько токенов подряд — берём последний
+const TOKEN = ((process.env.BOT_TOKEN || '').match(/\d{6,12}:[A-Za-z0-9_-]{35}/g) || ['']).pop();
 const ADMIN_IDS = (process.env.ADMIN_IDS || '').split(',').map((s) => Number(s.trim())).filter(Boolean);
 const PUBLIC_URL = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/$/, '');
 const DEV = process.env.DEV_MODE === 'true';
@@ -69,7 +70,7 @@ async function main() {
   const db = await store.init();
   const tg = TOKEN ? createBot({ token: TOKEN, adminIds: ADMIN_IDS, publicUrl: PUBLIC_URL, db }) : null;
   if (!tg) console.warn('⚠️  BOT_TOKEN не задан или неверный формат — бот выключен');
-  else console.log(`🔎 BOT_TOKEN: id бота=${TOKEN.split(':')[0]}`);
+  else console.log(`🔎 BOT_TOKEN: id бота=${TOKEN.split(':')[0]}, найдено токенов=${((process.env.BOT_TOKEN || '').match(/\d{6,12}:[A-Za-z0-9_-]{35}/g) || []).length}`);
   if (!ADMIN_IDS.length) console.warn('⚠️  ADMIN_IDS не задан — админ-панель никому не доступна');
 
   const app = express();
