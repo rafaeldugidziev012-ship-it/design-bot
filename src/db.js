@@ -48,8 +48,12 @@ class JsonStore {
 
 /** Чинит строку подключения: экранирует спецсимволы в логине/пароле, убирает пробелы и <> */
 function fixMongoUri(raw) {
-  let uri = String(raw).trim().replace(/^["']|["']$/g, '');
-  const m = uri.match(/^(mongodb(?:\+srv)?:\/\/)(.*)@([^@]+)$/);
+  // в строке подключения не бывает пробелов и переносов — убираем их
+  let uri = String(raw).replace(/\s+/g, '').replace(/^["']|["']$/g, '');
+  const m = uri.match(/^(mongodb(?:\+srv)?:\/\/)([\s\S]*)@([^@]+)$/);
+  // безопасная диагностика (без пароля)
+  const host = m ? m[3].split(/[/?]/)[0] : '?';
+  console.log(`🔎 MONGODB_URI: схема=${/^mongodb(\+srv)?:\/\//.test(uri)} @=${(uri.match(/@/g) || []).length} хост=${host} длина=${uri.length}`);
   if (!m) return uri;
   const cred = m[2];
   const i = cred.indexOf(':');
