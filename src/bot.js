@@ -21,6 +21,7 @@ function orderText(o) {
   if (o.budget) lines.push(`💰 Бюджет: ${esc(o.budget)}`);
   if (o.deadline) lines.push(`⏰ Сроки: ${esc(o.deadline)}`);
   if (o.contact) lines.push(`📱 Контакт: ${esc(o.contact)}`);
+  if (o.lang === 'en' || (o.currency && o.currency !== 'KZT')) lines.push(`🌐 Клиент смотрел: ${o.lang === 'en' ? 'английский' : 'русский'}, ${o.currency || 'KZT'}`);
   lines.push('', `📝 ${esc(o.description)}`);
   if (o.references) lines.push('', `🔗 Референсы: ${esc(o.references)}`);
   return lines.join('\n');

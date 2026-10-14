@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { DEFAULT_SETTINGS, DEFAULT_SERVICES, DEFAULT_WORKS } = require('./defaults');
+const { DEFAULT_SETTINGS, DEFAULT_SERVICES, DEFAULT_WORKS, EN_SERVICES, EN_WORKS } = require('./defaults');
 
 const newId = () => crypto.randomBytes(6).toString('hex');
 const COLLECTIONS = ['services', 'works', 'orders', 'users'];
@@ -128,6 +128,23 @@ async function init() {
     }
     console.log('✨ Добавлены стартовые данные');
   }
+
+  // Миграция: добавляем английские версии к стартовым данным, если их ещё нет
+  try {
+    for (const sv of await store.all('services')) {
+      const en = EN_SERVICES[sv.name];
+      if (en && !sv.nameEn) await store.update('services', sv.id, en);
+    }
+    for (const w of await store.all('works')) {
+      const en = EN_WORKS[w.title];
+      if (en && !w.titleEn) await store.update('works', w.id, en);
+    }
+    const st = await store.getSettings();
+    if (st && Array.isArray(st.categories) && st.categories.some((c) => !c.nameEn)) {
+      st.categories = st.categories.map((c) => c.nameEn ? c : { ...c, nameEn: (DEFAULT_SETTINGS.categories.find((d) => d.id === c.id) || {}).nameEn || '' });
+      await store.setSettings(st);
+    }
+  } catch (e) { console.warn('Миграция EN:', e.message); }
 
   // Подмешиваем дефолтные поля, если в настройках их ещё нет (после обновлений)
   const rawGet = store.getSettings.bind(store);

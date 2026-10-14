@@ -46,6 +46,8 @@ function cleanWork(b, partial) {
   if (!partial || 'images' in b) w.images = cleanImages(b.images);
   if (!partial || 'pinned' in b) w.pinned = bool(b.pinned);
   if ('client' in b) w.client = str(b.client, 120);
+  if (!partial || 'titleEn' in b) w.titleEn = str(b.titleEn, 120);
+  if (!partial || 'descriptionEn' in b) w.descriptionEn = str(b.descriptionEn, 1500);
   return w;
 }
 
@@ -63,6 +65,13 @@ function cleanService(b, partial) {
   }
   if (!partial || 'active' in b) s.active = 'active' in b ? bool(b.active) : true;
   if ('sort' in b) s.sort = Number(b.sort) || 0;
+  if (!partial || 'nameEn' in b) s.nameEn = str(b.nameEn, 100);
+  if (!partial || 'descriptionEn' in b) s.descriptionEn = str(b.descriptionEn, 600);
+  if (!partial || 'durationEn' in b) s.durationEn = str(b.durationEn, 60);
+  if (!partial || 'featuresEn' in b) {
+    const f = Array.isArray(b.featuresEn) ? b.featuresEn : String(b.featuresEn || '').split('\n');
+    s.featuresEn = f.map((x) => str(x, 120)).filter(Boolean).slice(0, 12);
+  }
   return s;
 }
 
@@ -102,6 +111,25 @@ async function main() {
     });
   }));
 
+  // курсы валют: 1 ₸ = X ₽ / $ (обновляются раз в 12 часов, есть запасные значения)
+  let ratesCache = { rates: { KZT: 1, RUB: 0.18, USD: 0.002 }, updated: 0, source: 'fallback' };
+  app.get('/api/rates', wrap(async (req, res) => {
+    if (Date.now() - ratesCache.updated > 12 * 3600e3) {
+      try {
+        const r = await fetch('https://open.er-api.com/v6/latest/KZT', { signal: AbortSignal.timeout(5000) });
+        const d = await r.json();
+        if (d && d.rates && d.rates.USD && d.rates.RUB) {
+          ratesCache = { rates: { KZT: 1, RUB: d.rates.RUB, USD: d.rates.USD }, updated: Date.now(), source: 'open.er-api.com' };
+        } else ratesCache.updated = Date.now() - 11 * 3600e3;
+      } catch (e) {
+        console.warn('Курсы валют не загрузились:', e.message);
+        ratesCache.updated = Date.now() - 11 * 3600e3; // повторить через час
+      }
+    }
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.json(ratesCache);
+  }));
+
   app.get('/api/me', auth, wrap(async (req, res) => {
     const u = req.user;
     db.upsert('users', u.id, { username: u.username || null, name: [u.first_name, u.last_name].filter(Boolean).join(' '), lastSeen: Date.now() }).catch(() => {});
@@ -138,6 +166,8 @@ async function main() {
       deadline: str(b.deadline, 100),
       contact: str(b.contact, 100),
       references: str(b.references, 1000),
+      lang: b.lang === 'en' ? 'en' : 'ru',
+      currency: ['KZT', 'RUB', 'USD'].includes(b.currency) ? b.currency : 'KZT',
       status: 'new',
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -229,7 +259,7 @@ async function main() {
     const b = req.body || {};
     const cur = await db.getSettings();
     const next = { ...cur };
-    for (const [k, max] of [['name', 60], ['title', 80], ['bio', 600], ['welcome', 800], ['currency', 6]]) {
+    for (const [k, max] of [['name', 60], ['title', 80], ['bio', 600], ['welcome', 800], ['currency', 6], ['titleEn', 80], ['bioEn', 600]]) {
       if (k in b) next[k] = str(b[k], max);
     }
     if ('contact' in b) next.contact = str(b.contact, 40).replace(/^@/, '').replace(/^https?:\/\/t\.me\//, '');
@@ -240,7 +270,7 @@ async function main() {
     }
     if (Array.isArray(b.categories)) {
       next.categories = b.categories
-        .map((c) => ({ id: str(c.id, 40) || db.newId(), name: str(c.name, 60) }))
+        .map((c) => ({ id: str(c.id, 40) || db.newId(), name: str(c.name, 60), nameEn: str(c.nameEn, 60) }))
         .filter((c) => c.name)
         .slice(0, 20);
     }
