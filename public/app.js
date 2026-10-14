@@ -19,14 +19,121 @@
   // ---------- утилиты ----------
   const $ = (s, el = document) => el.querySelector(s);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const cur = () => S.data?.settings?.currency || '₸';
-  const money = (n) => `${Number(n || 0).toLocaleString('ru-RU')} ${cur()}`;
-  const priceText = (s) => (s.priceFrom ? 'от ' : '') + money(s.price);
+
+  // ---------- язык и валюта ----------
+  const LS = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+  const tgLang = (tg?.initDataUnsafe?.user?.language_code || navigator.language || 'ru').slice(0, 2);
+  S.lang = LS.get('lang') || (['ru', 'uk', 'be', 'kk', 'ky', 'uz'].includes(tgLang) ? 'ru' : 'en');
+  S.cur = LS.get('cur') || (S.lang === 'en' ? 'USD' : 'KZT');
+  S.rates = { KZT: 1, RUB: 0.18, USD: 0.002 }; // запасные значения, реальные грузятся с сервера
+
+  const TR = {
+    ru: {
+      home: 'Главная', works: 'Работы', prices: 'Цены', orders: 'Заказы', admin: 'Админ', close: 'Закрыть',
+      accepting: 'Принимаю заказы', busy: 'Сейчас занят', years: 'лет опыта', projects: 'проектов', clients: 'клиентов',
+      orderDesign: 'Заказать дизайн', portfolio: 'Портфолио', directions: 'Направления', pricesArrow: 'Цены →',
+      featured: 'Избранные работы', all: 'Все', allArrow: 'Все →', howWeWork: 'Как проходит работа',
+      steps: [
+        ['Заявка', 'Вы описываете задачу в приложении — это 2 минуты'],
+        ['Обсуждение', 'Я пишу вам, уточняю детали, сроки и стоимость'],
+        ['Дизайн и правки', 'Показываю концепции и дорабатываю до результата'],
+        ['Готовые файлы', 'Вы получаете исходники во всех нужных форматах'],
+      ],
+      haveIdea: 'Есть идея?', haveIdeaText: 'Расскажите о задаче — отвечу в течение дня и предложу решение.',
+      leaveRequest: 'Оставить заявку', writeTo: 'Написать', from: 'от ', other: 'Другое',
+      worksCount: (n) => `${n} ${plural(n, 'работа', 'работы', 'работ')}`, tapToView: 'нажмите, чтобы посмотреть',
+      worksSoon: 'Работы скоро появятся', worksSoonText: 'Пока здесь пусто, но можно уже заказать дизайн',
+      wantSimilar: 'Хочу похожий дизайн', edit: '✏️ Редактировать',
+      servicesTitle: 'Услуги и цены', servicesSub: 'Цены ориентировочные — точная стоимость зависит от объёма и сложности задачи.',
+      approx: 'Пересчёт по текущему курсу, итоговая цена — в тенге.',
+      orderBtn: 'Заказать', needOther: 'Нужно что-то другое?', needOtherText: 'Опишите задачу — посчитаю стоимость индивидуально.', discuss: 'Обсудить проект',
+      openInTg: 'Откройте приложение через Telegram, чтобы оставить заявку', notAccepting: 'Сейчас я не принимаю новые заказы',
+      newOrder: 'Новый заказ', newOrderSub: 'Заполните заявку — я свяжусь с вами в Telegram', service: 'Услуга',
+      otherService: 'Другое / не знаю', letsDiscuss: 'обсудим', describe: 'Опишите задачу', describePh: 'Что нужно сделать, для кого, какое настроение, где будет использоваться…',
+      budget: 'Бюджет', budgetPh: 'напр. ', deadline: 'Сроки', deadlinePh: 'напр. до пятницы', refs: 'Референсы (ссылки)', refsPh: 'Pinterest, Behance, примеры…',
+      contactHow: 'Как с вами связаться', contactPh: '@username или телефон', send: 'Отправить заявку', sending: 'Отправляю…',
+      payNote: 'Оплата обсуждается после согласования деталей. Файлы и референсы можно прислать в чате.',
+      tooShort: 'Опишите задачу чуть подробнее', sent: (n) => `Заявка #${n} отправлена!`,
+      sentText: 'Я уже получил уведомление и свяжусь с вами в ближайшее время. Статус заказа — во вкладке «Заказы».', myOrders: 'Мои заказы',
+      openViaTg: 'Откройте через Telegram', openViaTgText: 'Заказы доступны только внутри Telegram-бота',
+      noOrders: 'Заказов пока нет', noOrdersText: 'Оставьте первую заявку — это займёт пару минут', ordersSub: 'Уведомления о смене статуса придут в чат с ботом',
+      status: { new: 'Новая', in_progress: 'В работе', done: 'Готово', cancelled: 'Отменена' },
+      error: 'Что-то пошло не так', lang: 'Язык', currency: 'Валюта',
+    },
+    en: {
+      home: 'Home', works: 'Works', prices: 'Prices', orders: 'Orders', admin: 'Admin', close: 'Close',
+      accepting: 'Open for orders', busy: 'Currently busy', years: 'years', projects: 'projects', clients: 'clients',
+      orderDesign: 'Order a design', portfolio: 'Portfolio', directions: 'Services', pricesArrow: 'Prices →',
+      featured: 'Featured work', all: 'All', allArrow: 'All →', howWeWork: 'How it works',
+      steps: [
+        ['Request', 'Describe your task in the app — it takes 2 minutes'],
+        ['Discussion', 'I message you to clarify details, timing and price'],
+        ['Design & revisions', 'I show concepts and refine them until it’s right'],
+        ['Final files', 'You get source files in every format you need'],
+      ],
+      haveIdea: 'Got an idea?', haveIdeaText: 'Tell me about your project — I’ll reply within a day with a solution.',
+      leaveRequest: 'Send a request', writeTo: 'Message', from: 'from ', other: 'Other',
+      worksCount: (n) => `${n} ${n === 1 ? 'project' : 'projects'}`, tapToView: 'tap to view',
+      worksSoon: 'Works coming soon', worksSoonText: 'Nothing here yet, but you can already order a design',
+      wantSimilar: 'I want something similar', edit: '✏️ Edit',
+      servicesTitle: 'Services & prices', servicesSub: 'Prices are approximate — the final cost depends on scope and complexity.',
+      approx: 'Converted at the current rate; final price is set in KZT.',
+      orderBtn: 'Order', needOther: 'Need something else?', needOtherText: 'Describe your task — I’ll quote it individually.', discuss: 'Discuss a project',
+      openInTg: 'Open the app in Telegram to send a request', notAccepting: 'I’m not taking new orders right now',
+      newOrder: 'New order', newOrderSub: 'Fill in the request — I’ll contact you on Telegram', service: 'Service',
+      otherService: 'Other / not sure', letsDiscuss: 'let’s discuss', describe: 'Describe your task', describePh: 'What needs to be done, for whom, what mood, where it will be used…',
+      budget: 'Budget', budgetPh: 'e.g. ', deadline: 'Deadline', deadlinePh: 'e.g. by Friday', refs: 'References (links)', refsPh: 'Pinterest, Behance, examples…',
+      contactHow: 'How to reach you', contactPh: '@username or phone', send: 'Send request', sending: 'Sending…',
+      payNote: 'Payment is discussed after agreeing on details. You can send files and references in the chat.',
+      tooShort: 'Please describe the task in a bit more detail', sent: (n) => `Request #${n} sent!`,
+      sentText: 'I’ve been notified and will contact you soon. Track the status in the “Orders” tab.', myOrders: 'My orders',
+      openViaTg: 'Open in Telegram', openViaTgText: 'Orders are available only inside the Telegram bot',
+      noOrders: 'No orders yet', noOrdersText: 'Send your first request — it takes a couple of minutes', ordersSub: 'Status updates will arrive in the bot chat',
+      status: { new: 'New', in_progress: 'In progress', done: 'Done', cancelled: 'Cancelled' },
+      error: 'Something went wrong', lang: 'Language', currency: 'Currency',
+    },
+  };
+  const t = (k) => (TR[S.lang] && TR[S.lang][k] !== undefined ? TR[S.lang][k] : TR.ru[k]);
+  // текст с учётом английской версии: L(obj, 'name') → obj.nameEn в английском режиме
+  const L = (o, f) => (o ? (S.lang === 'en' && o[f + 'En'] ? o[f + 'En'] : o[f]) : '');
+  const LF = (o) => (S.lang === 'en' && o?.featuresEn?.length ? o.featuresEn : o?.features || []);
+
+  const CUR = {
+    KZT: { sym: '₸', label: '₸ KZT' },
+    RUB: { sym: '₽', label: '₽ RUB' },
+    USD: { sym: '$', label: '$ USD' },
+  };
+  function convert(n) {
+    const v = Number(n || 0) * (S.rates[S.cur] || 1);
+    if (S.cur === 'KZT') return Math.round(v);
+    if (S.cur === 'USD') return v < 50 ? Math.max(1, Math.round(v)) : Math.round(v / 5) * 5;
+    return v < 1000 ? Math.round(v / 10) * 10 : Math.round(v / 50) * 50;
+  }
+  const num = (v) => Number(v).toLocaleString(S.lang === 'en' ? 'en-US' : 'ru-RU');
+  // цена для клиента — в выбранной валюте
+  const money = (n) => (S.cur === 'USD' ? `$${num(convert(n))}` : `${num(convert(n))} ${CUR[S.cur].sym}`);
+  // цена в админке — всегда в базовой валюте (тенге)
+  const moneyBase = (n) => `${Number(n || 0).toLocaleString('ru-RU')} ${S.data?.settings?.currency || '₸'}`;
+  const priceText = (s) => (s.priceFrom ? t('from') : '') + money(s.price);
+  const priceBase = (s) => (s.priceFrom ? 'от ' : '') + moneyBase(s.price);
+  const cur = () => (S.cur === 'USD' ? '$' : CUR[S.cur].sym);
   const imgSrc = (id) => (!id ? '' : /^(\/|https?:)/.test(id) ? id : '/img/' + encodeURIComponent(id));
   const cats = () => S.data?.settings?.categories || [];
-  const catName = (id) => cats().find((c) => c.id === id)?.name || 'Другое';
-  const fmtDate = (t) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const catName = (id) => { const c = cats().find((c) => c.id === id); return c ? L(c, 'name') : t('other'); };
+  const fmtDate = (ts) => new Date(ts).toLocaleDateString(S.lang === 'en' ? 'en-GB' : 'ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const STATUS = { new: 'Новая', in_progress: 'В работе', done: 'Готово', cancelled: 'Отменена' };
+
+  function setLang(l) { S.lang = l; LS.set('lang', l); haptic('select'); render(); }
+  function setCur(c) { S.cur = c; LS.set('cur', c); haptic('select'); render(); }
+  function switcher() {
+    return `<div class="switch-row">
+      <div class="seg-mini">${['ru', 'en'].map((l) => `<button class="${S.lang === l ? 'on' : ''}" onclick="App.setLang('${l}')">${l.toUpperCase()}</button>`).join('')}</div>
+      <div class="seg-mini">${Object.keys(CUR).map((c) => `<button class="${S.cur === c ? 'on' : ''}" onclick="App.setCur('${c}')">${CUR[c].sym}</button>`).join('')}</div>
+    </div>`;
+  }
 
   const GRADS = [
     'linear-gradient(135deg,#7c3aed,#db2777)',
@@ -66,7 +173,7 @@
     if (body && !isForm) headers['Content-Type'] = 'application/json';
     const r = await fetch(url, { method, headers, body: isForm ? body : body ? JSON.stringify(body) : undefined });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || 'Что-то пошло не так');
+    if (!r.ok) throw new Error(data.error || t('error'));
     return data;
   }
 
@@ -82,9 +189,9 @@
 
   // ---------- навигация ----------
   function tabs() {
-    const t = [['home', 'Главная'], ['works', 'Работы'], ['prices', 'Цены'], ['orders', 'Заказы']];
-    if (S.me?.isAdmin) t.push(['admin', 'Админ']);
-    return t;
+    const list = ['home', 'works', 'prices', 'orders'].map((k) => [k, t(k)]);
+    if (S.me?.isAdmin) list.push(['admin', t('admin')]);
+    return list;
   }
 
   function renderNav() {
@@ -119,7 +226,7 @@
   function openSheet(html, onClose) {
     const el = document.createElement('div');
     el.className = 'sheet-wrap';
-    el.innerHTML = `<div class="sheet-bg"></div><div class="sheet"><div class="sheet-grip"></div><button class="sheet-x" aria-label="Закрыть">✕</button><div class="sheet-body">${html}</div></div>`;
+    el.innerHTML = `<div class="sheet-bg"></div><div class="sheet"><div class="sheet-grip"></div><button class="sheet-x" aria-label="${t('close')}">✕</button><div class="sheet-body">${html}</div></div>`;
     el.querySelector('.sheet-bg').onclick = back;
     el.querySelector('.sheet-x').onclick = back;
     el._onClose = onClose;
@@ -163,20 +270,20 @@
   function tile(w, i = 0) {
     const c = w.images?.[0];
     const media = c
-      ? `<img loading="lazy" data-fallback src="${imgSrc(c.thumb)}" alt="${esc(w.title)}">`
-      : `<div class="ph" style="--g:${gradFor(w.id)};--ar:${arFor(w.id)}"><span>${esc((w.title || '?').replace(/[«»"]/g, '')[0])}</span></div>`;
+      ? `<img loading="lazy" data-fallback src="${imgSrc(c.thumb)}" alt="${esc(L(w, 'title'))}">`
+      : `<div class="ph" style="--g:${gradFor(w.id)};--ar:${arFor(w.id)}"><span>${esc((L(w, 'title') || '?').replace(/[«»"]/g, '')[0])}</span></div>`;
     return `<button class="tile rise" style="--d:${Math.min(i, 10) * 45}ms" onclick="App.openWork('${w.id}')">
       ${media}
       ${w.images?.length > 1 ? `<i class="tile-badge">1/${w.images.length}</i>` : ''}
       ${S.me?.isAdmin && w.demo ? '<i class="tile-badge l">демо</i>' : ''}
-      <div class="tile-cap"><b>${esc(w.title)}</b><span>${esc(catName(w.categoryId))}</span></div>
+      <div class="tile-cap"><b>${esc(L(w, 'title'))}</b><span>${esc(catName(w.categoryId))}</span></div>
     </button>`;
   }
 
   function minPrice(catId) {
     const list = S.data.services.filter((s) => s.categoryId === catId);
     if (!list.length) return '';
-    return 'от ' + money(Math.min(...list.map((s) => s.price)));
+    return t('from') + money(Math.min(...list.map((s) => s.price)));
   }
 
   // ---------- ГЛАВНАЯ ----------
@@ -184,53 +291,49 @@
     const s = S.data.settings;
     const works = S.data.works;
     const featured = (works.some((w) => w.pinned) ? works.filter((w) => w.pinned) : works).slice(0, 4);
-    const stats = [['years', 'лет опыта'], ['projects', 'проектов'], ['clients', 'клиентов']];
+    const stats = [['years', t('years')], ['projects', t('projects')], ['clients', t('clients')]];
     const open = s.acceptingOrders !== false;
     return `
+      ${switcher()}
       <section class="hero">
         <div class="rise">${avatarHtml(s)}</div>
-        <div class="status-pill rise ${open ? '' : 'off'}" style="--d:60ms"><i></i>${open ? 'Принимаю заказы' : 'Сейчас занят'}</div>
+        <div class="status-pill rise ${open ? '' : 'off'}" style="--d:60ms"><i></i>${open ? t('accepting') : t('busy')}</div>
         <h1 class="display rise" style="--d:100ms">${esc(s.name)}</h1>
-        <p class="role grad-text rise" style="--d:140ms">${esc(s.title)}</p>
-        <p class="bio rise" style="--d:180ms">${esc(s.bio)}</p>
+        <p class="role grad-text rise" style="--d:140ms">${esc(L(s, 'title'))}</p>
+        <p class="bio rise" style="--d:180ms">${esc(L(s, 'bio'))}</p>
         <div class="stats rise" style="--d:220ms">${stats.map(([k, l]) => `<div class="stat"><b>${esc(s.stats?.[k] || '—')}</b><span>${l}</span></div>`).join('')}</div>
         <div class="hero-cta rise" style="--d:260ms">
-          <button class="btn btn-primary" onclick="App.order()">Заказать дизайн</button>
-          <button class="btn btn-ghost" onclick="App.go('works')">Портфолио</button>
+          <button class="btn btn-primary" onclick="App.order()">${t('orderDesign')}</button>
+          <button class="btn btn-ghost" onclick="App.go('works')">${t('portfolio')}</button>
         </div>
       </section>
 
       <section class="block">
-        <div class="block-head"><h2>Направления</h2><button class="link" onclick="App.go('prices')">Цены →</button></div>
+        <div class="block-head"><h2>${t('directions')}</h2><button class="link" onclick="App.go('prices')">${t('pricesArrow')}</button></div>
         <div class="hscroll">${cats().map((c) => {
           const n = works.filter((w) => w.categoryId === c.id).length;
           return `<button class="cat" style="--g:${gradFor(c.id + c.name)}" onclick="App.filterGo('${c.id}')">
-            ${n ? `<span class="count">${n} ${plural(n, 'работа', 'работы', 'работ')}</span>` : ''}
-            <b>${esc(c.name)}</b><small>${minPrice(c.id)}</small></button>`;
+            ${n ? `<span class="count">${t('worksCount')(n)}</span>` : ''}
+            <b>${esc(L(c, 'name'))}</b><small>${minPrice(c.id)}</small></button>`;
         }).join('')}</div>
       </section>
 
       ${featured.length ? `<section class="block">
-        <div class="block-head"><h2>Избранные работы</h2><button class="link" onclick="App.go('works')">Все →</button></div>
+        <div class="block-head"><h2>${t('featured')}</h2><button class="link" onclick="App.go('works')">${t('allArrow')}</button></div>
         <div class="masonry">${featured.map(tile).join('')}</div>
       </section>` : ''}
 
       <section class="block">
-        <div class="block-head"><h2>Как проходит работа</h2></div>
-        <div class="steps">${[
-          ['Заявка', 'Вы описываете задачу в приложении — это 2 минуты'],
-          ['Обсуждение', 'Я пишу вам, уточняю детали, сроки и стоимость'],
-          ['Дизайн и правки', 'Показываю концепции и дорабатываю до результата'],
-          ['Готовые файлы', 'Вы получаете исходники во всех нужных форматах'],
-        ].map(([t, d], i) => `<div class="step"><div class="step-n">${i + 1}</div><div><b>${t}</b><span>${d}</span></div></div>`).join('')}</div>
+        <div class="block-head"><h2>${t('howWeWork')}</h2></div>
+        <div class="steps">${t('steps').map(([t, d], i) => `<div class="step"><div class="step-n">${i + 1}</div><div><b>${t}</b><span>${d}</span></div></div>`).join('')}</div>
       </section>
 
       <section class="block">
         <div class="cta">
-          <h3>Есть идея?</h3>
-          <p>Расскажите о задаче — отвечу в течение дня и предложу решение.</p>
-          <button class="btn btn-primary btn-block" onclick="App.order()">Оставить заявку</button>
-          ${s.contact ? `<button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="App.contact()">Написать @${esc(s.contact)}</button>` : ''}
+          <h3>${t('haveIdea')}</h3>
+          <p>${t('haveIdeaText')}</p>
+          <button class="btn btn-primary btn-block" onclick="App.order()">${t('leaveRequest')}</button>
+          ${s.contact ? `<button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="App.contact()">${t('writeTo')} @${esc(s.contact)}</button>` : ''}
         </div>
       </section>`;
   }
@@ -246,12 +349,13 @@
   function vWorks() {
     const all = S.data.works;
     const list = S.filter === 'all' ? all : all.filter((w) => w.categoryId === S.filter);
-    const chips = [['all', 'Все', all.length], ...cats().map((c) => [c.id, c.name, all.filter((w) => w.categoryId === c.id).length])].filter(([id, , n]) => id === 'all' || n);
+    const chips = [['all', t('all'), all.length], ...cats().map((c) => [c.id, L(c, 'name'), all.filter((w) => w.categoryId === c.id).length])].filter(([id, , n]) => id === 'all' || n);
     return `
-      <h1 class="page-title">Портфолио</h1>
-      <p class="page-sub">${all.length} ${plural(all.length, 'работа', 'работы', 'работ')} · нажмите, чтобы посмотреть</p>
+      ${switcher()}
+      <h1 class="page-title">${t('portfolio')}</h1>
+      <p class="page-sub">${t('worksCount')(all.length)} · ${t('tapToView')}</p>
       <div class="chips">${chips.map(([id, name, n]) => `<button class="chip ${S.filter === id ? 'on' : ''}" onclick="App.setFilter('${id}')">${esc(name)}<sup>${n}</sup></button>`).join('')}</div>
-      ${list.length ? `<div class="masonry">${list.map(tile).join('')}</div>` : emptyState('🖼', 'Работы скоро появятся', 'Пока здесь пусто, но можно уже заказать дизайн')}`;
+      ${list.length ? `<div class="masonry">${list.map(tile).join('')}</div>` : emptyState('🖼', t('worksSoon'), t('worksSoonText'))}`;
   }
 
   function openWork(id) {
@@ -260,18 +364,18 @@
     const imgs = w.images || [];
     const media = imgs.length
       ? imgs.map((i) => `<div><img src="${imgSrc(i.full)}" alt=""></div>`).join('')
-      : `<div class="ph" style="--g:${gradFor(w.id)}"><span>${esc((w.title || '?').replace(/[«»"]/g, '')[0])}</span></div>`;
+      : `<div class="ph" style="--g:${gradFor(w.id)}"><span>${esc((L(w, 'title') || '?').replace(/[«»"]/g, '')[0])}</span></div>`;
     const svc = S.data.services.find((s) => s.categoryId === w.categoryId);
     const el = openSheet(`
       <div class="gallery">${media}</div>
       ${imgs.length > 1 ? `<div class="dots">${imgs.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div>` : ''}
       <div class="work-meta">
         <span class="tag">${esc(catName(w.categoryId))}</span>
-        <h3>${esc(w.title)}</h3>
-        ${w.description ? `<p>${esc(w.description)}</p>` : ''}
+        <h3>${esc(L(w, 'title'))}</h3>
+        ${L(w, 'description') ? `<p>${esc(L(w, 'description'))}</p>` : ''}
       </div>
-      <button class="btn btn-primary btn-block" onclick="App.closeAndOrder('${svc ? svc.id : ''}')">Хочу похожий дизайн</button>
-      ${S.me?.isAdmin ? `<button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="App.closeAndEditWork('${w.id}')">✏️ Редактировать</button>` : ''}`);
+      <button class="btn btn-primary btn-block" onclick="App.closeAndOrder('${svc ? svc.id : ''}')">${t('wantSimilar')}</button>
+      ${S.me?.isAdmin ? `<button class="btn btn-ghost btn-block" style="margin-top:8px" onclick="App.closeAndEditWork('${w.id}')">${t('edit')}</button>` : ''}`);
     const g = el.querySelector('.gallery');
     const dots = el.querySelectorAll('.dots i');
     if (dots.length) g.addEventListener('scroll', () => {
@@ -284,51 +388,52 @@
   function vPrices() {
     const svcs = S.data.services;
     const known = new Set(cats().map((c) => c.id));
-    const groups = [...cats(), { id: '__other', name: 'Другое' }]
+    const groups = [...cats(), { id: '__other', name: t('other') }]
       .map((c) => ({ c, list: svcs.filter((s) => (c.id === '__other' ? !known.has(s.categoryId) : s.categoryId === c.id)) }))
       .filter((g) => g.list.length);
     return `
-      <h1 class="page-title">Услуги и цены</h1>
-      <p class="page-sub">Цены ориентировочные — точная стоимость зависит от объёма и сложности задачи.</p>
+      ${switcher()}
+      <h1 class="page-title">${t('servicesTitle')}</h1>
+      <p class="page-sub">${t('servicesSub')}${S.cur !== 'KZT' ? ' ' + t('approx') : ''}</p>
       ${groups.map(({ c, list }) => `
-        <div class="group-title">${esc(c.name)}</div>
+        <div class="group-title">${esc(L(c, 'name'))}</div>
         ${list.map((s, i) => `
           <div class="svc rise" style="--d:${i * 50}ms">
             <div class="svc-top">
-              <div><b>${esc(s.name)}</b>${s.duration ? `<span class="svc-dur">⏱ ${esc(s.duration)}</span>` : ''}</div>
+              <div><b>${esc(L(s, 'name'))}</b>${L(s, 'duration') ? `<span class="svc-dur">⏱ ${esc(L(s, 'duration'))}</span>` : ''}</div>
               <div class="svc-price grad-text">${priceText(s)}</div>
             </div>
-            ${s.description ? `<p>${esc(s.description)}</p>` : ''}
-            ${s.features?.length ? `<ul class="checks">${s.features.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : '<div style="height:14px"></div>'}
-            <button class="btn btn-soft btn-block btn-sm" onclick="App.order('${s.id}')">Заказать</button>
+            ${L(s, 'description') ? `<p>${esc(L(s, 'description'))}</p>` : ''}
+            ${LF(s).length ? `<ul class="checks">${LF(s).map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : '<div style="height:14px"></div>'}
+            <button class="btn btn-soft btn-block btn-sm" onclick="App.order('${s.id}')">${t('orderBtn')}</button>
           </div>`).join('')}`).join('')}
-      <div class="block"><div class="cta"><h3>Нужно что-то другое?</h3><p>Опишите задачу — посчитаю стоимость индивидуально.</p><button class="btn btn-primary btn-block" onclick="App.order()">Обсудить проект</button></div></div>`;
+      <div class="block"><div class="cta"><h3>${t('needOther')}</h3><p>${t('needOtherText')}</p><button class="btn btn-primary btn-block" onclick="App.order()">${t('discuss')}</button></div></div>`;
   }
 
   // ---------- ЗАКАЗ ----------
   function order(serviceId) {
-    if (!S.me) return toast('Откройте приложение через Telegram, чтобы оставить заявку', true);
-    if (S.data.settings.acceptingOrders === false && !S.me.isAdmin) return toast('Сейчас я не принимаю новые заказы', true);
+    if (!S.me) return toast(t('openInTg'), true);
+    if (S.data.settings.acceptingOrders === false && !S.me.isAdmin) return toast(t('notAccepting'), true);
     const svcs = S.data.services;
     const sel = serviceId || '';
     const u = S.me.user;
     openSheet(`
-      <div class="sheet-title">Новый заказ</div>
-      <p class="sheet-sub">Заполните заявку — я свяжусь с вами в Telegram</p>
+      <div class="sheet-title">${t('newOrder')}</div>
+      <p class="sheet-sub">${t('newOrderSub')}</p>
       <form id="orderForm" autocomplete="off">
-        <div class="field"><span>Услуга</span><div class="picks">
-          ${svcs.map((s) => `<label class="pick"><input type="radio" name="serviceId" value="${s.id}" ${s.id === sel ? 'checked' : ''}><span>${esc(s.name)}<em>${priceText(s)}</em></span></label>`).join('')}
-          <label class="pick"><input type="radio" name="serviceId" value="" ${sel ? '' : 'checked'}><span>Другое / не знаю<em>обсудим</em></span></label>
+        <div class="field"><span>${t('service')}</span><div class="picks">
+          ${svcs.map((s) => `<label class="pick"><input type="radio" name="serviceId" value="${s.id}" ${s.id === sel ? 'checked' : ''}><span>${esc(L(s, 'name'))}<em>${priceText(s)}</em></span></label>`).join('')}
+          <label class="pick"><input type="radio" name="serviceId" value="" ${sel ? '' : 'checked'}><span>${t('otherService')}<em>${t('letsDiscuss')}</em></span></label>
         </div></div>
-        <label class="field"><span>Опишите задачу <em>*</em></span><textarea class="input" name="description" required minlength="5" maxlength="2000" placeholder="Что нужно сделать, для кого, какое настроение, где будет использоваться…"></textarea></label>
+        <label class="field"><span>${t('describe')} <em>*</em></span><textarea class="input" name="description" required minlength="5" maxlength="2000" placeholder="${t('describePh')}"></textarea></label>
         <div class="row2">
-          <label class="field"><span>Бюджет</span><input class="input" name="budget" maxlength="100" placeholder="напр. 30 000 ${esc(cur())}"></label>
-          <label class="field"><span>Сроки</span><input class="input" name="deadline" maxlength="100" placeholder="напр. до пятницы"></label>
+          <label class="field"><span>${t('budget')}</span><input class="input" name="budget" maxlength="100" placeholder="${t('budgetPh')}${esc(money(30000))}"></label>
+          <label class="field"><span>${t('deadline')}</span><input class="input" name="deadline" maxlength="100" placeholder="${t('deadlinePh')}"></label>
         </div>
-        <label class="field"><span>Референсы (ссылки)</span><input class="input" name="references" maxlength="1000" placeholder="Pinterest, Behance, примеры…"></label>
-        <label class="field"><span>Как с вами связаться</span><input class="input" name="contact" maxlength="100" value="${u.username ? '@' + esc(u.username) : ''}" placeholder="@username или телефон"></label>
-        <button class="btn btn-primary btn-block" type="submit">Отправить заявку</button>
-        <p class="fine">Оплата обсуждается после согласования деталей. Файлы и референсы можно прислать в чате.</p>
+        <label class="field"><span>${t('refs')}</span><input class="input" name="references" maxlength="1000" placeholder="${t('refsPh')}"></label>
+        <label class="field"><span>${t('contactHow')}</span><input class="input" name="contact" maxlength="100" value="${u.username ? '@' + esc(u.username) : ''}" placeholder="${t('contactPh')}"></label>
+        <button class="btn btn-primary btn-block" type="submit">${t('send')}</button>
+        <p class="fine">${t('payNote')}</p>
       </form>`);
     $('#orderForm').onsubmit = submitOrder;
   }
@@ -338,9 +443,11 @@
     const f = e.target;
     const btn = f.querySelector('button[type=submit]');
     const data = Object.fromEntries(new FormData(f));
-    if ((data.description || '').trim().length < 5) return toast('Опишите задачу чуть подробнее', true);
+    if ((data.description || '').trim().length < 5) return toast(t('tooShort'), true);
+    data.lang = S.lang;
+    data.currency = S.cur;
     btn.disabled = true;
-    btn.textContent = 'Отправляю…';
+    btn.textContent = t('sending');
     try {
       const { order } = await api('POST', '/api/orders', data);
       S.me.orders.unshift(order);
@@ -349,28 +456,28 @@
       setSheet(`
         <div class="success">
           <div class="success-icon">${I.check}</div>
-          <h3>Заявка #${order.number} отправлена!</h3>
-          <p>Я уже получил уведомление и свяжусь с вами в ближайшее время. Статус заказа — во вкладке «Заказы».</p>
-          <button class="btn btn-primary btn-block" onclick="App.closeAndGo('orders')">Мои заказы</button>
+          <h3>${t('sent')(order.number)}</h3>
+          <p>${t('sentText')}</p>
+          <button class="btn btn-primary btn-block" onclick="App.closeAndGo('orders')">${t('myOrders')}</button>
         </div>`);
     } catch (err) {
       toast(err.message, true);
       btn.disabled = false;
-      btn.textContent = 'Отправить заявку';
+      btn.textContent = t('send');
     }
   }
 
   // ---------- МОИ ЗАКАЗЫ ----------
   function vOrders() {
-    if (!S.me) return emptyState('🔒', 'Откройте через Telegram', 'Заказы доступны только внутри Telegram-бота');
+    if (!S.me) return emptyState('🔒', t('openViaTg'), t('openViaTgText'));
     const list = S.me.orders;
-    if (!list.length) return `<h1 class="page-title">Мои заказы</h1>` + emptyState('✨', 'Заказов пока нет', 'Оставьте первую заявку — это займёт пару минут', 'Заказать дизайн', 'App.order()');
+    if (!list.length) return `<h1 class="page-title">${t('myOrders')}</h1>` + emptyState('✨', t('noOrders'), t('noOrdersText'), t('orderDesign'), 'App.order()');
     return `
-      <h1 class="page-title">Мои заказы</h1>
-      <p class="page-sub">Уведомления о смене статуса придут в чат с ботом</p>
+      <h1 class="page-title">${t('myOrders')}</h1>
+      <p class="page-sub">${t('ordersSub')}</p>
       ${list.map((o, i) => `
         <div class="card rise" style="--d:${i * 40}ms">
-          <div class="card-top"><b>#${o.number} · ${esc(o.serviceName)}</b><span class="st st-${o.status}">${STATUS[o.status]}</span></div>
+          <div class="card-top"><b>#${o.number} · ${esc(o.serviceName)}</b><span class="st st-${o.status}">${t('status')[o.status]}</span></div>
           <div class="muted">${fmtDate(o.createdAt)}</div>
           <div class="desc">${esc(o.description)}</div>
         </div>`).join('')}`;
@@ -541,6 +648,8 @@
       <label class="field"><span>Название <em>*</em></span><input class="input" id="wTitle" maxlength="120" value="${esc(w?.title || '')}" placeholder="Логотип для кофейни"></label>
       <label class="field"><span>Категория</span><select class="input" id="wCat">${cats().map((c) => `<option value="${c.id}" ${w?.categoryId === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
       <label class="field"><span>Описание</span><textarea class="input" id="wDesc" maxlength="1500" placeholder="Задача, решение, результат…">${esc(w?.description || '')}</textarea></label>
+      <details class="en-box"><summary>🇬🇧 English version (необязательно)</summary><label class="field"><span>Title (EN)</span><input class="input" id="wTitleEn" maxlength="120" value="${esc(w?.titleEn || '')}" placeholder="Coffee shop logo"></label>
+        <label class="field"><span>Description (EN)</span><textarea class="input" id="wDescEn" maxlength="1500">${esc(w?.descriptionEn || '')}</textarea></label></details>
       <label class="switch"><span>Закрепить на главной</span><input type="checkbox" id="wPin" ${w?.pinned ? 'checked' : ''}><i></i></label>
       <button class="btn btn-primary btn-block" id="wSave" onclick="App.saveWork()">Сохранить</button>
       ${w ? `<button class="btn btn-danger btn-block" style="margin-top:8px" onclick="App.deleteWork('${w.id}')">Удалить работу</button>` : ''}`, () => { S.edit = null; });
@@ -605,6 +714,7 @@
     if (S.edit.images.some((x) => x.loading)) return toast('Дождитесь загрузки картинок', true);
     const body = {
       title: $('#wTitle').value, categoryId: $('#wCat').value, description: $('#wDesc').value,
+      titleEn: $('#wTitleEn').value, descriptionEn: $('#wDescEn').value,
       pinned: $('#wPin').checked, images: S.edit.images,
     };
     if (!body.title.trim()) return toast('Укажите название', true);
@@ -634,7 +744,7 @@
       ${list.map((s) => `
         <button class="list-item ${s.active === false ? 'off-label' : ''}" onclick="App.editService('${s.id}')">
           <div class="grow"><b>${esc(s.name)}</b><small>${esc(catName(s.categoryId))}${s.active === false ? ' · скрыта' : ''}</small></div>
-          <div class="price grad-text">${priceText(s)}</div>
+          <div class="price grad-text">${priceBase(s)}</div>
         </button>`).join('')}`;
   }
 
@@ -646,12 +756,16 @@
       <label class="field"><span>Название <em>*</em></span><input class="input" id="sName" maxlength="100" value="${esc(s?.name || '')}" placeholder="Логотип"></label>
       <label class="field"><span>Категория</span><select class="input" id="sCat">${cats().map((c) => `<option value="${c.id}" ${s?.categoryId === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
       <div class="row2">
-        <label class="field"><span>Цена, ${esc(cur())}</span><input class="input" id="sPrice" type="number" inputmode="numeric" min="0" value="${s?.price ?? ''}" placeholder="25000"></label>
+        <label class="field"><span>Цена, ${esc(S.data.settings.currency || '₸')}</span><input class="input" id="sPrice" type="number" inputmode="numeric" min="0" value="${s?.price ?? ''}" placeholder="25000"></label>
         <label class="field"><span>Срок</span><input class="input" id="sDur" maxlength="60" value="${esc(s?.duration || '')}" placeholder="3–5 дней"></label>
       </div>
       <label class="switch"><span>Показывать «от» перед ценой</span><input type="checkbox" id="sFrom" ${!s || s.priceFrom ? 'checked' : ''}><i></i></label>
       <label class="field"><span>Описание</span><textarea class="input" id="sDesc" maxlength="600" style="min-height:80px">${esc(s?.description || '')}</textarea></label>
       <label class="field"><span>Что входит (каждый пункт с новой строки)</span><textarea class="input" id="sFeat" placeholder="3 концепции\n2 правки\nИсходники">${esc((s?.features || []).join('\n'))}</textarea></label>
+      <details class="en-box"><summary>🇬🇧 English version (необязательно)</summary><label class="field"><span>Name (EN)</span><input class="input" id="sNameEn" maxlength="100" value="${esc(s?.nameEn || '')}" placeholder="Logo"></label>
+        <label class="field"><span>Duration (EN)</span><input class="input" id="sDurEn" maxlength="60" value="${esc(s?.durationEn || '')}" placeholder="3–5 days"></label>
+        <label class="field"><span>Description (EN)</span><textarea class="input" id="sDescEn" maxlength="600" style="min-height:80px">${esc(s?.descriptionEn || '')}</textarea></label>
+        <label class="field"><span>What’s included (EN, one per line)</span><textarea class="input" id="sFeatEn">${esc((s?.featuresEn || []).join('\n'))}</textarea></label></details>
       <label class="switch"><span>Услуга активна (видна клиентам)</span><input type="checkbox" id="sActive" ${!s || s.active !== false ? 'checked' : ''}><i></i></label>
       <button class="btn btn-primary btn-block" id="sSave" onclick="App.saveService('${s?.id || ''}')">Сохранить</button>
       ${s ? `<div class="row2" style="margin-top:8px">
@@ -666,6 +780,7 @@
       name: $('#sName').value, categoryId: $('#sCat').value, price: $('#sPrice').value,
       duration: $('#sDur').value, priceFrom: $('#sFrom').checked, description: $('#sDesc').value,
       features: $('#sFeat').value, active: $('#sActive').checked,
+      nameEn: $('#sNameEn').value, durationEn: $('#sDurEn').value, descriptionEn: $('#sDescEn').value, featuresEn: $('#sFeatEn').value,
     };
     if (!body.name.trim()) return toast('Укажите название', true);
     const btn = $('#sSave'); btn.disabled = true;
@@ -714,10 +829,12 @@
       <label class="field"><span>Имя / название студии</span><input class="input" id="pName" maxlength="60" value="${esc(s.name)}"></label>
       <label class="field"><span>Специализация</span><input class="input" id="pTitle" maxlength="80" value="${esc(s.title)}"></label>
       <label class="field"><span>Описание</span><textarea class="input" id="pBio" maxlength="600">${esc(s.bio)}</textarea></label>
+      <details class="en-box"><summary>🇬🇧 English version (необязательно)</summary><label class="field"><span>Specialization (EN)</span><input class="input" id="pTitleEn" maxlength="80" value="${esc(s.titleEn || '')}" placeholder="Graphic designer"></label>
+        <label class="field"><span>About (EN)</span><textarea class="input" id="pBioEn" maxlength="600">${esc(s.bioEn || '')}</textarea></label></details>
       <label class="field"><span>Приветствие в боте (/start)</span><textarea class="input" id="pWelcome" maxlength="800" style="min-height:80px">${esc(s.welcome)}</textarea></label>
       <div class="row2">
         <label class="field"><span>Ваш username</span><input class="input" id="pContact" maxlength="40" value="${esc(s.contact)}" placeholder="username"></label>
-        <label class="field"><span>Валюта</span><input class="input" id="pCur" maxlength="6" value="${esc(s.currency)}"></label>
+        <label class="field"><span>Валюта цен</span><input class="input" id="pCur" maxlength="6" value="${esc(s.currency)}" disabled title="Цены вводятся в тенге, клиенты могут переключить ₸ / ₽ / $"></label>
       </div>
       <label class="switch"><span>Принимаю заказы</span><input type="checkbox" id="pOpen" ${s.acceptingOrders !== false ? 'checked' : ''}><i></i></label>
 
@@ -743,17 +860,19 @@
   function renderCats() {
     const box = $('#catList');
     if (!box) return;
-    box.innerHTML = S.edit.cats.map((c, i) => `<div class="cat-row"><input class="input" value="${esc(c.name)}" maxlength="60" oninput="App.catName(${i}, this.value)"><button onclick="App.delCat(${i})">✕</button></div>`).join('');
+    box.innerHTML = S.edit.cats.map((c, i) => `<div class="cat-row"><input class="input" value="${esc(c.name)}" maxlength="60" placeholder="Название" oninput="App.catName(${i}, this.value)"><input class="input" value="${esc(c.nameEn || '')}" maxlength="60" placeholder="EN" oninput="App.catNameEn(${i}, this.value)"><button onclick="App.delCat(${i})">✕</button></div>`).join('');
   }
   function addCat() { S.edit.cats.push({ id: '', name: '' }); renderCats(); box_focus(); }
   function box_focus() { const ins = document.querySelectorAll('#catList input'); ins[ins.length - 1]?.focus(); }
   function delCat(i) { S.edit.cats.splice(i, 1); renderCats(); }
   function setCatName(i, v) { S.edit.cats[i].name = v; }
+  function setCatNameEn(i, v) { S.edit.cats[i].nameEn = v; }
 
   async function saveProfile() {
     if (S.edit.images.some((x) => x.loading)) return toast('Дождитесь загрузки фото', true);
     const body = {
       name: $('#pName').value, title: $('#pTitle').value, bio: $('#pBio').value, welcome: $('#pWelcome').value,
+      titleEn: $('#pTitleEn').value, bioEn: $('#pBioEn').value,
       contact: $('#pContact').value, currency: $('#pCur').value, acceptingOrders: $('#pOpen').checked,
       avatar: S.edit.images[0] || null,
       stats: { years: $('#stYears').value, projects: $('#stProjects').value, clients: $('#stClients').value },
@@ -788,6 +907,7 @@
       ]);
       S.data = pub;
       S.me = me;
+      fetch('/api/rates').then((r) => r.json()).then((r) => { if (r && r.rates) { S.rates = { ...S.rates, ...r.rates }; if (S.cur !== 'KZT' && !S.stack.length) render(); } }).catch(() => {});
     } catch (e) {
       $('#view').innerHTML = emptyState('⚠️', 'Не удалось загрузить', e.message, 'Повторить', 'location.reload()');
       $('#loader').classList.add('hide');
@@ -820,7 +940,7 @@
     setStatus, orderMore, sendMsg, saveNote, deleteOrder,
     editWork, saveWork, deleteWork, uploadImgs, makeCover, removeImg,
     editService, saveService, moveService, deleteService,
-    saveProfile, addCat, delCat, catName: setCatName,
+    saveProfile, addCat, delCat, catName: setCatName, catNameEn: setCatNameEn, setLang, setCur,
   };
 
   init();

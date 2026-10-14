@@ -284,3 +284,13 @@ select.input { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://ww
 @keyframes shimmer { to { background-position: -200% 0; } }
 
 @media (min-width: 520px) { .masonry { columns: 3; } }
+
+/* переключатели языка и валюты */
+.switch-row { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 6px; position: relative; z-index: 2; }
+.seg-mini { display: inline-flex; padding: 3px; gap: 2px; border-radius: 12px; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); }
+.seg-mini button { min-width: 36px; height: 28px; padding: 0 9px; border-radius: 9px; font-size: 12.5px; font-weight: 700; color: var(--muted); transition: all .2s; }
+.seg-mini button.on { background: var(--text); color: var(--bg); }
+.en-box { margin: 4px 0 16px; border: 1px dashed var(--line-2); border-radius: 14px; padding: 4px 14px; }
+.en-box summary { cursor: pointer; padding: 10px 0; font-size: 13.5px; font-weight: 600; color: #c4b5fd; list-style: none; }
+.en-box summary::-webkit-details-marker { display: none; }
+.en-box[open] summary { margin-bottom: 6px; }
